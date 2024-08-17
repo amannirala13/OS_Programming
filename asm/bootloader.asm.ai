@@ -1,0 +1,98 @@
+org 0x7c00
+bits 16
+
+;-------------------- [ data section ]
+.data:
+    res dw 0
+    temp dw 0
+    v1 dw 0
+    v2 dw 0
+    rem dw 0
+    quo dw 0
+
+;-------------------- [ start functions ]
+
+start:
+    call _readNumber
+    mov ax, [temp]
+    mov [v1], ax
+    call _readNumber
+    mov ax, [temp]
+    mov [v2], ax
+    mov ax, [v1]
+    add ax, [v2]
+    mov [temp], ax
+    call _printNumber
+    jmp $
+
+;-------------------- [ helper functions ]
+
+_divBy10:
+    ; This function divides the number in 'temp' by 10.
+    ; The quotient is placed in 'quo' and the remainder in 'rem'.
+    mov ax, [temp]
+    xor dx, dx           ; Clear dx for division.
+    mov cx, 10           ; Set divisor to 10.
+    div cx               ; AX divided by 10, result in AX, remainder in DX.
+    mov [quo], ax        ; Store the quotient.
+    mov [rem], dx        ; Store the remainder.
+    ret
+
+;-------------------- [ reading functions ]
+
+_readNumber:
+    ; This function reads an ASCII number from the keyboard and converts it to an integer.
+    xor bx, bx           ; BX will hold the number.
+    mov [temp], bx        ; Clear temporary storage.
+
+.read_loop:
+    call _readChar      ; Read a single character into AL.
+    cmp al, 13          ; Check if the Enter key (carriage return) was pressed.
+    je .done            ; If yes, we are done reading the number.
+    sub al, '0'         ; Convert ASCII character to numerical value.
+    movzx ax, al        ; Zero-extend AL into AX.
+    imul bx, bx, 10     ; Multiply the number in BX by 10.
+    add bx, ax          ; Add the new digit to BX.
+    jmp .read_loop      ; Repeat the loop.
+.done:
+    mov [temp], bx      ; Store the result in 'temp'.
+    ret
+
+_readChar:
+    ; This function waits for a key press and returns the ASCII character in AL.
+    xor ah, ah
+    int 16h             ; BIOS interrupt for reading a character.
+    ret
+
+;-------------------- [ printing functions ]
+
+_printChar:
+    ; This function prints a single character stored in AL.
+    mov ah, 0eh         ; Teletype output function.
+    int 10h             ; BIOS interrupt for screen output.
+    ret
+
+_printNumber:
+    ; This function prints the unsigned number stored in 'temp'.
+    mov ax, [temp]      ; Move number into AX for division.
+    xor cx, cx          ; Counter for number of digits.
+.print_loop:
+    xor dx, dx          ; Clear DX for the DIV operation.
+    div byte [10]       ; AX divided by 10, quotient in AX, remainder in DX.
+    push dx             ; Push remainder (digit) onto stack.
+    inc cx              ; Increment digit counter.
+    test ax, ax         ; Check if AX is zero.
+    jnz .print_loop     ; If not, continue loop.
+.print_digits:
+    dec cx              ; Decrement digit counter.
+    js .done            ; If counter underflows, all digits printed.
+    pop ax              ; Pop a digit off the stack.
+    add al, '0'         ; Convert to ASCII.
+    call _printChar     ; Print the character.
+    jmp .print_digits   ; Loop back to print next digit.
+.done:
+    ret
+
+; BIOS interrupt handling requires filling until 510 bytes and ending with 0xAA55
+times 510 - ($ - $$) db 0
+dw 0xAA55                  ; Boot signature

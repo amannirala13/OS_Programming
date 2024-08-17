@@ -1,0 +1,114 @@
+ORG 0x7c00
+BITS 16
+.DATA:
+data DB 0, 0, 0
+dp DB 0
+start:
+        v1: dw 0             ; Variable to store first integer
+        v2: dw 0
+        v3: dw 0
+        cons: db 0
+        res: dw 0
+        CALL read_value
+        MOV [v1], bx
+        CALL read_value
+        MOV [v2], bx
+        MOV ax, [v1]
+        ADD ax, [v2]
+        MOV [res], ax
+        ;CALL print_answer
+        ADD ax, '0'
+        call print_char
+        ;CALL print_answer
+        ;MOV si, msg
+       ; CALL print
+        JMP $
+
+read_value:
+    XOR bx, bx
+.loop:
+    XOR ah, ah
+    INT 16h
+    CMP ah, 0x1c
+    je .done
+    MOV bx, ax
+    SUB ax, '0'
+    CALL mul_10
+    ADD bx, ax
+    ADD ax, '0'
+    CALL print_char
+    JMP .loop
+.done:
+    ;MOV ax, bx
+    ;ADD ax, '0'
+    ;CALL print_char
+    ret
+
+print_answer:
+    ;mov ax, 0x0003  ; Set video mode 0x03 (text mode, 16 colors)
+    ;int 0x10        ; BIOS video services interrupt
+    mov ax, [res]  ; Move the sum to AX
+    mov bx, 10        ; Divisor (10 for decimal digits)
+    mov cx, 0         ; Initialize digit count
+
+.convert_loop:
+    xor dx, dx        ; Clear DX for division
+    idiv bx            ; Divide AX by 10
+    add dl, '0'       ; Convert the remainder (digit) to ASCII
+    mov al, dl
+    CALL print_char
+    push dx           ; Push the ASCII digit on the stack
+    inc cx            ; Increment digit count
+    cmp ax, 0         ; Check if quotient is zero
+    ;CALL print_char
+    jle .convert_loop  ; Jump if not zero (more digits)
+    jmp .print_loop
+
+.print_loop:
+    MOV si, msg
+    CALL print
+    pop dx            ; Pop a digit from the stack
+    mov al, dl
+    ;mov ah, 0eh      ; BIOS video services
+    ;int 0x10          ; Print the digit
+    ;dec cx
+    ;cmp cx, 0
+    ;jnz .print_loop
+    loop .print_loop   ; Loop until CX is zero
+    ret               ; Return from the subroutine
+
+print:
+    MOV bx, 0       ; reset bx register
+.loop:
+    LODSB           ; loading current si pointer and shifting it to the right by one index
+    CMP al, 0       ; checking if the loaded char is 0
+    je .done        ; jump tp .done if the above statement is true
+    call print_char ; else call .print_char
+    JMP .loop       ; jump back to the loop to print the next char
+.done:
+    ret
+
+
+mul_10:
+    XOR dx, dx
+    MOV cx, 10
+    .loop:
+        ADD dx, bx
+        loop .loop
+    .done:
+        MOV bx, dx
+        ret
+
+print_char:
+    .loop:
+        MOV ah, 0eh
+        INT 10h
+        jmp .done
+    .done:
+        ret
+
+msg: db " Hello world ",0
+end_msg: db " Ends---- ", 0
+
+TIMES 510-  ($ - $$) db 0   ; bios size
+dw 0xAA55           ; magic number for boot sector

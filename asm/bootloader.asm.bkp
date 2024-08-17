@@ -1,0 +1,129 @@
+ORG 0x7c00          ; location of the bootloader
+BITS 16             ; boots in 16 bit for legacy support
+start:
+             ; Variable to store second integer
+    result: dw 0         ; Intermediate variable
+    MOV si, HLW_MSG ; move the message to si register
+    CALL print      ; call print routine
+    CALL read_value
+    MOV [v1], bl
+    CALL read_value
+    MOV [v2], bl
+    MOV bl, [v1]
+    ADD bl, [v2]
+    MOV [result], bl
+    JMP print_answer
+
+
+deci_mod_fun:
+    mov bl, [result]
+    MOV al, 10
+.loop:
+    CMP bl ,al
+    JL .done
+    SUB bl, al
+    JMP .loop
+.done:
+    POP bx
+    ret
+
+print_answer:
+    ;mov ax, 0x0003  ; Set video mode 0x03 (text mode, 16 colors)
+    ;int 0x10        ; BIOS video services interrupt
+    mov ax, [result]  ; Move the sum to AX
+    mov bx, 10        ; Divisor (10 for decimal digits)
+    mov cx, 0         ; Initialize digit count
+
+.convert_loop:
+    xor dx, dx        ; Clear DX for division
+    div bx            ; Divide AX by 10
+    add dl, '0'       ; Convert the remainder (digit) to ASCII
+    mov al, dl
+    CALL print_char
+    push dx           ; Push the ASCII digit on the stack
+    inc cx            ; Increment digit count
+    cmp ax, 0         ; Check if quotient is zero
+    ;CALL print_char
+    jle .convert_loop  ; Jump if not zero (more digits)
+    jmp .print_loop
+
+.print_loop:
+    MOV si, END_MSG
+    CALL print
+    pop dx            ; Pop a digit from the stack
+    mov al, dl
+    ;mov ah, 0eh      ; BIOS video services
+    ;int 0x10          ; Print the digit
+    ;dec cx
+    ;cmp cx, 0
+    ;jnz .print_loop
+    loop .print_loop   ; Loop until CX is zero
+    ret               ; Return from the subroutine
+
+
+print:
+    MOV bx, 0       ; reset bx register
+.loop:
+    LODSB           ; loading current si pointer and shifting it to the right by one index
+    CMP al, 0       ; checking if the loaded char is 0
+    je .done        ; jump tp .done if the above statement is true
+    call print_char ; else call .print_char
+    JMP .loop       ; jump back to the loop to print the next char
+.done:
+    ret
+
+read_value:
+    MOV bl, 0
+    JMP .loop
+.loop:
+    MOV ah, 0x00
+    INT 16h
+    CMP ah, 0x1c
+    je .done
+    SUB al, '0'
+    shl bl, 3   ; Shift al left by 3 bits (multiply by 2^3 = 8)
+    ADD bl, al  ; Add original bl to shifted value (multiply by 3)
+    ADD al, 48
+    CALL print_char
+    JMP .loop
+.done:
+    ;MOV al, bl
+    ;CALL print_char
+    ret
+
+read_kb:
+    MOV ah, 0x00
+    INT 16h
+    CMP ah, 0x1c
+    je .done
+    MOV ah, 0eh
+    INT 0x10
+    JMP read_kb
+.done:
+    ;MOV si, END_MSG
+    CALL print
+    ret
+print_int:
+    MOV si, END_MSG
+    CALL print
+    MOV ah, 0x0E  ; AH for BIOS video services (example)
+    MOV bl, al    ; Move the converted digit (AL) to BL for printing (optional)
+    MOV bh, 0x00 ; Video buffer address (example)
+    INT 0x10       ; Interrupt for video services (example)
+    ret
+
+print_char:
+    MOV ah, 0eh     ; ah -> eax
+    INT 0x10        ; calling the bios through 0x10 interrupt to print char to video memo
+    ret             ; return
+
+HLW_MSG: db 0x0A, 0x0A, 'Hello world of Kernels!', 0x0A, 'This boot loader is written by Aman Nirala!',0x0A, 0    ; message to be printed, ends with a 0
+;ANS_MSG: db 0x0A, "Sum: ", 0
+END_MSG: db 0x0A, 0x0A, "...Program finished"
+result_str: DB 13, 10, "$: $" , 0 ; String buffer to store the result
+
+TIMES 510-  ($ - $$) db 0   ; bios size
+dw 0xAA55           ; magic number for boot sector
+
+
+

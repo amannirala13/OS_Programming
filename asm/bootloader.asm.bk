@@ -1,0 +1,95 @@
+org 0x7c00
+bits 16
+
+start:
+    ; Set up video mode
+    mov ax, 0x0003
+    int 0x10
+
+    ; Read first number
+    mov si, msg1
+    call print_string
+    call read_number
+    mov bx, ax  ; Store first number in BX
+
+    ; Read second number
+    mov si, msg2
+    call print_string
+    call read_number
+
+    ; Add the two numbers
+    add ax, bx
+
+    ; Convert the sum to string
+    mov cx, 0   ; Initialize digit count
+    mov bx, 10  ; Decimal base
+    push ax     ; Save the sum on the stack
+
+convert_loop:
+    xor dx, dx  ; Clear DX
+    div bx      ; Divide AX by 10
+    add dl, '0' ; Convert remainder to ASCII
+    push dx     ; Push ASCII digit on the stack
+    inc cx      ; Increment digit count
+    test ax, ax ; Check if quotient is zero
+    jnz convert_loop
+
+    ; Print the sum string
+    mov si, msg3
+    call print_string
+
+print_digits:
+    pop dx      ; Pop a digit from the stack
+    mov ah, 0x0e
+    int 0x10    ; Print the digit
+    loop print_digits
+
+    ; Exit the program
+    jmp $
+
+; Subroutine to read a number from the keyboard
+read_number:
+    xor ax, ax  ; Clear AX
+    xor cx, cx  ; Clear CX (digit count)
+
+read_loop:
+    mov ah, 0x00
+    int 0x16    ; Read a character from keyboard
+    cmp al, 0x0D  ; Check if Enter key is pressed
+    je read_done
+    push ax     ; Push the character on the stack
+    inc cx      ; Increment digit count
+    jmp read_loop
+
+read_done:
+    mov bx, 10  ; Decimal base
+
+convert_loop2:
+    pop ax      ; Pop a digit from the stack
+    sub al, '0' ; Convert ASCII to numeric value
+    xchg ax, bx
+    mul bx      ; Multiply the current value by 10
+    xchg ax, bx
+    add ax, bx  ; Add the new digit to the current value
+    loop convert_loop2
+
+    ret
+
+; Subroutine to print a null-terminated string
+print_string:
+    lodsb       ; Load a byte from SI into AL
+    cmp al, 0   ; Check if it's the null terminator
+    je print_done
+    mov ah, 0x0e
+    int 0x10    ; Print the character
+    jmp print_string
+
+print_done:
+    ret
+
+msg1 db 'Enter first number: ', 0
+msg2 db 'Enter second number: ', 0
+msg3 db 'The sum is: ', 0
+
+times 510 - ($ - $$) db 0  ; Pad the bootloader with zeros
+dw 0xAA55                  ; Boot signature

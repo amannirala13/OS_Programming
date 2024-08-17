@@ -1,4 +1,4 @@
-SOURCE = bootloader.asm
+SOURCE = ctof.asm
 OUTPUT = boot.bin
 
 LOG_MONITOR = -monitor stdio
